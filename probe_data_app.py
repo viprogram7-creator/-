@@ -37,7 +37,7 @@ elif st.session_state.page == 2:
     st.write(f"Вказана кількість днів: **{st.session_state.days}**")
     date_from = st.date_input("Дата 'з'")
     date_to = st.date_input("Дата 'по'")
-   if st.button("Перевірити"):
+if st.button("Перевірити"):
     if date_to < date_from:
         st.error("Дата 'по' не може бути раніше дати 'з'")
     else:
