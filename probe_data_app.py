@@ -12,14 +12,23 @@ if "days" not in st.session_state:
 if st.session_state.page == 1:
     st.title("Питання 1")
     days = st.number_input("Скільки днів відрядження?", min_value=1, step=1)
-    if days:
+    if st.button("Далі"):
         st.session_state.days = days
         if days > 90:
-            st.warning("Термін перевищує 90 днів.")
-            st.markdown("[Постанова КМУ №98](https://zakon.rada.gov.ua/laws/show/98-2011-%D0%BF)")
-        if st.button("Далі"):
+            st.session_state.page = "warning"
+        else:
             st.session_state.page = 2
-            st.rerun()
+        st.rerun()
+# -------------------
+# Сторінка попередження (>90)
+# -------------------
+elif st.session_state.page == "warning":
+    st.title("Попередження")
+    st.error("Відрядження на навчання більше 90 днів не може бути, відповідно до §287 Постанови КМУ (параграф 1).")
+    st.markdown("[Переглянути Постанову КМУ №287](https://zakon.rada.gov.ua/laws/show/287-2011-%D0%BF)")
+    if st.button("Повернутися назад"):
+        st.session_state.page = 1
+        st.rerun()
 # -------------------
 # Сторінка 2
 # -------------------
