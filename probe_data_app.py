@@ -28,16 +28,14 @@ elif st.session_state.page == 2:
     st.write(f"Вказана кількість днів: **{st.session_state.days}**")
     date_from = st.date_input("Дата 'з'")
     date_to = st.date_input("Дата 'по'")
-    if st.button("Перевірити"):
-        if date_to < date_from:
-            st.error("Дата 'по' не може бути раніше дати 'з'")
+   if st.button("Перевірити"):
+    if date_to < date_from:
+        st.error("Дата 'по' не може бути раніше дати 'з'")
+    else:
+        actual_days = (date_to - date_from).days + 1
+        if actual_days != st.session_state.days:
+            st.error(
+                f"Термін відрядження не збігається з кількістю днів! "
+                f"За датами виходить {actual_days} днів.")
         else:
-            actual_days = (date_to - date_from).days + 1
-            if actual_days != st.session_state.days:
-                st.error(
-                    f"Кількість днів не збігається! "
-                    f"За датами виходить {actual_days} днів.")
-                st.session_state.page = 1
-                st.rerun()
-            else:
-                st.success("Дані введені правильно ✅")
+            st.success("Дані введені правильно ✅")
