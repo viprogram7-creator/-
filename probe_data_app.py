@@ -1,111 +1,111 @@
 import streamlit as st
-from datetime import datetime
-# --- Ініціалізація стану сторінок ---
+import pandas as pd
+from datetime import timedelta
+# --- Ініціалізація стану ---
 if 'page' not in st.session_state:
     st.session_state.page = 1
-if 'countries' not in st.session_state:
-    st.session_state.countries = [""]
-# Функція для переходу на сторінку
-def go_to(page_number):
-    st.session_state.page = page_number
+if 'data' not in st.session_state:
+    st.session_state.data = {}
+def go_to(page):
+    st.session_state.page = page
     st.rerun()
-# --- Дані з Постанови №98 (Приклад списку) ---
-POSTANOVA_COUNTRIES = [
-    "Австрія", "Бельгія", "Велика Британія", "Греція", "Данія", "Естонія", 
-    "Ізраїль", "Ірландія", "Іспанія", "Італія", "Канада", "Латвія", 
-    "Литва", "Німеччина", "Норвегія", "Польща", "Словаччина", "США", 
-    "Туреччина", "Угорщина", "Франція", "Чехія", "Швейцарія", "Швеція"]
 # --- СТОРІНКА 1 ---
 if st.session_state.page == 1:
-    st.title("Сторінка 1")
-    st.subheader("Оберіть напрям відрядження:")
+    st.subheader("Терміни заходу та відрядження")
+    # Питання 1
+    st.write("Вкажіть дату проведення основного заходу (вказано в запрошенні):")
     col1, col2 = st.columns(2)
-    if col1.button("а. Україна"):
-        st.toast("Ця функція ще недоступна", icon="⚠️")
-    if col2.button("б. Закордон"):
+    start_main = col1.date_input("Початок заходу", key="main_s")
+    end_main = col2.date_input("Кінець заходу", key="main_e")
+    main_days = (end_main - start_main).days + 1
+    st.info(f"Тривалість заходу: {main_days} дн.")
+    # Питання 2
+    st.write("Вкажіть загальний термін відрядження разом з дорогою:")
+    col3, col4 = st.columns(2)
+    start_total = col3.date_input("Дата початку", key="total_s")
+    end_total = col4.date_input("Дата кінця", key="total_e")
+    total_days = (end_total - start_total).days + 1
+    st.info(f"Загальна тривалість: {total_days} дн.")
+    if st.button("Далі ➡️"):
+        st.session_state.data['start_total'] = start_total
+        st.session_state.data['end_total'] = end_total
         go_to(2)
 # --- СТОРІНКА 2 ---
 elif st.session_state.page == 2:
-    st.title("Сторінка 2")
-    st.subheader("Оберіть країну відрядження")
-    st.info("Максимально можна обрати до 3 країн")
-    selected_countries = []
-    for i, country in enumerate(st.session_state.countries):
-        selected = st.selectbox(f"Країна {i+1}", [""] + POSTANOVA_COUNTRIES, key=f"country_{i}")
-        if selected:
-            selected_countries.append(selected)
-    # Кнопка додавання країни (+)
-    if len(st.session_state.countries) < 3:
-        if st.button("➕ Додати ще одну країну"):
-            st.session_state.countries.append("")
-            st.rerun()
-    if len(selected_countries) > 0:
-        if st.button("Далі ➡️"):
-            go_to(3)
+    st.subheader("Дати переміщення")
+    d3 = st.date_input("Вкажіть дату виїзду з місця роботи")
+    d4 = st.date_input("Вкажіть дату прибуття в країну відрядження")
+    d5 = st.date_input("Вкажіть дату вибуття з країни відрядження")
+    d6 = st.date_input("Вкажіть дату повернення в Україну в місто роботи")
+    col_prev, col_next = st.columns(2)
+    if col_prev.button("⬅️ Назад"):
+        go_to(1)
+    if col_next.button("Далі ➡️"):
+        st.session_state.data.update({'d3': d3, 'd4': d4, 'd5': d5, 'd6': d6})
+        go_to(3)
 # --- СТОРІНКА 3 ---
 elif st.session_state.page == 3:
-    st.title("Сторінка 3")
-    st.subheader("Оберіть тип відрядження")
-    choice = st.radio("Тип:", ["а. Все що не має відношення до навчання: робочі зустрічі, польові навчання, конференції, забрати гуманітарку", "б. Навчання, тренінги"])
-    if st.button("Далі ➡️"):
-        go_to(4)
+    st.subheader("Маршрут")
+    st.write("Маршрут до країни відрядження відбувається:")
+    route = st.radio("Оберіть варіант:", [
+        "а. Прямий рейс без зупинок та ночівель",
+        "б. На шляху є пересадки або зупинки на ночівлю"])
+    col_prev, col_next = st.columns(2)
+    if col_prev.button("⬅️ Назад"):
+        go_to(2)
+    if col_next.button("Далі ➡️"):
+        st.session_state.data['route'] = route
+        if "а." in route:
+            go_to(4)
+        else:
+            st.warning("Сторінка для варіанту 'б' у розробці. Оберіть 'а' для тестування.")
 # --- СТОРІНКА 4 ---
 elif st.session_state.page == 4:
-    st.title("Сторінка 4")
-    st.subheader("Хто фінансує відрядження?")
-    finance = st.radio("Варіанти:", [
-        "а. Всі витрати за рахунок приймаючої сторони",
-        "б. За рахунок бюджету проєкту (кошти на рахунку установи)",
-        "в. Всі витрати за рахунок ДСНС",
-        "г. Частково приймаюча сторона / частково ДСНС"])
-    if st.button("Далі ➡️"):
-        if "а." in finance:
-            go_to(5)
-        elif "б." in finance or "в." in finance:
-            go_to(7)
-        elif "г." in finance:
-            go_to(6)
-# --- СТОРІНКА 5 ---
-elif st.session_state.page == 5:
-    st.title("Сторінка 5")
-    st.success("При таких умовах складати кошторис не треба")
-    if st.button("Повернутися на початок"):
+    st.subheader("Перетин кордону")
+    data = st.session_state.data
+    # Логіка Питання 8
+    q8_answer = None
+    if data['d4'] != data['d3']:
+        st.write("Коли відбувається перетин українського кордону на початку поїздки?")
+        q8_answer = st.radio("Вибір:", ["а. першого дня до 23:59", "б. другого дня після 00:00"], key="q8")
+    # Логіка Питання 9
+    q9_answer = None
+    if data['d6'] != data['d5']:
+        st.write("Коли відбувається перетин українського кордону при поверненні в Україну?")
+        q9_answer = st.radio("Вибір:", ["а. до 23:59 передостаннього дня", "б. після 00:00 останнього дня"], key="q9")
+    if st.button("Сформувати таблицю 📊"):
+        # Генеруємо список усіх дат
+        all_dates = []
+        current_date = data['start_total']
+        while current_date <= data['end_total']:
+            all_dates.append(current_date)
+            current_date += timedelta(days=1)
+        results = {}
+        target_country = "Велика Британія"
+        for dt in all_dates:
+            # За замовчуванням
+            results[dt] = target_country
+            # Обробка початку поїздки (Питання 8)
+            if q8_answer == "б. другого дня після 00:00":
+                if dt == data['d3']:
+                    results[dt] = "Україна"
+            # Обробка повернення (Питання 9)
+            if q9_answer == "а. до 23:59 передостаннього дня":
+                if dt == data['d6']:
+                    results[dt] = "Україна"
+            elif q9_answer == "б. після 00:00 останнього дня":
+                # Всі дні залишаються Британією згідно вашої умови
+                pass
+        # Створення фінальної таблиці
+        df = pd.DataFrame({
+            "Дата": results.keys(),
+            "Добові по країні": results.values()})
+        st.session_state.final_df = df
+        go_to(100) # Фінальна сторінка
+# --- ФІНАЛЬНА СТОРІНКА ---
+elif st.session_state.page == 100:
+    st.subheader("Таблиця 1")
+    st.table(st.session_state.final_df)
+    if st.button("🔄 Почати заново"):
         st.session_state.clear()
-        st.rerun()
-# --- СТОРІНКА 6 ---
-elif st.session_state.page == 6:
-    st.title("Сторінка 6")
-    st.warning("""
-    **Всі фінансові умови прописані в запрошені або додатку до нього (програма заходу).** Якщо усно обговорювалися питання фінансування, вони мають бути підкріплені додатковим офіційним документом.
-    """)
-    st.radio("1. Чи забезпечує приймаюча сторона добовими?", ["а. Так", "б. Ні"])
-    st.radio("2. Чи забезпечує приймаюча сторона житлом?", [
-        "а. Так (Будь-де під час всього відрядження)",
-        "б. Частково (Тільки під час заходу на території країни)",
-        "в. Частково (На шляху до країни та під час заходу)",
-        "г. Ні"])
-    st.radio("3. Чи забезпечує приймаюча сторона страхуванням?", ["а. Так", "б. Ні"])
-    st.radio("4. Чи забезпечує приймаюча сторона харчуванням?", [
-        "а. Так (Повністю)",
-        "б. Частково",
-        "в. Ні"])
-    if st.button("Далі ➡️"):
-        go_to(7)
-# --- СТОРІНКА 7 ---
-elif st.session_state.page == 7:
-    st.title("Сторінка 7")
-    st.subheader("Терміни відрядження")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.date_input("1. Термін основного заходу (З)", key="main_start")
-        st.date_input("2. Загальний термін відрядження (З)", key="total_start")
-    with col2:
-        st.date_input("1. Термін основного заходу (ПО)", key="main_end")
-        st.date_input("2. Загальний термін відрядження (ПО)", key="total_end")
-    st.date_input("3. Вкажіть день виїзду з України", key="exit_ua")
-    st.date_input("4. Вкажіть день повернення в Україну", key="return_ua")
-    st.date_input("5. Вкажіть день прибуття в країну відрядження", key="arrival_dest")
-    st.date_input("6. Вкажіть день виїзду з країни відрядження", key="exit_dest")
-    if st.button("Сформувати результат"):
-        st.balloons()
-        st.success("Дані отримано! Можна переходити до розрахунку таблиці.")
+        go_to(1)
