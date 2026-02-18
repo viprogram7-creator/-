@@ -1,163 +1,111 @@
 import streamlit as st
-import pandas as pd
-from datetime import timedelta
-# Налаштування сторінки в діловому стилі
-st.set_page_config(page_title="Travel Calc Pro", page_icon="✈️", layout="centered")
-# Кастомний CSS для "мультяшного ділового" вигляду
+from streamlit_folium import st_folium
+import folium
+import json
+import requests
+# Налаштування сторінки
+st.set_page_config(page_title="Travel Designer", page_icon="🗺️")
+# Стилізація (Ділово-мультяшна)
 st.markdown("""
     <style>
-    .main {
-        background-color: #f0f2f6;
-    }
     .stButton>button {
-        width: 100%;
         border-radius: 20px;
-        height: 3em;
         background-color: #004aad;
         color: white;
-        border: 2px solid #003366;
-        transition: 0.3s;
+        font-weight: bold;
+        border: none;
     }
     .stButton>button:hover {
         background-color: #00d4ff;
         color: black;
-        transform: scale(1.02);
     }
-    .stDateInput, .stRadio, .stSelectbox {
-        background-color: white;
-        padding: 15px;
+    .country-tag {
+        display: inline-block;
+        padding: 5px 15px;
+        margin: 5px;
+        background-color: #e1f5fe;
+        border: 2px solid #004aad;
         border-radius: 15px;
-        box-shadow: 5px 5px 15px rgba(0,0,0,0.05);
-    }
-    h1, h2, h3 {
         color: #004aad;
-        font-family: 'Comic Sans MS', cursive, sans-serif;
+        font-weight: bold;
     }
     </style>
     """, unsafe_allow_html=True)
-# --- Ініціалізація стану ---
+# Ініціалізація стану
 if 'page' not in st.session_state:
     st.session_state.page = 1
-if 'data' not in st.session_state:
-    st.session_state.data = {}
-def go_to(page):
-    st.session_state.page = page
+if 'selected_countries' not in st.session_state:
+    st.session_state.selected_countries = []
+if 'show_map' not in st.session_state:
+    st.session_state.show_map = False
+def go_to(p):
+    st.session_state.page = p
     st.rerun()
 # --- СТОРІНКА 1 ---
 if st.session_state.page == 1:
-    st.title("📂 Крок 1: Планування")
+    st.title("📂 Початок оформлення")
     st.write("---")
-    st.markdown("### 🗓️ Термін основного заходу")
-    st.caption("Вкажіть дати згідно із запрошенням")
+    st.markdown("### Оберіть напрям відрядження:")
     col1, col2 = st.columns(2)
-    start_main = col1.date_input("Початок заходу", key="main_s")
-    end_main = col2.date_input("Кінець заходу", key="main_e")
-    main_days = (end_main - start_main).days + 1
-    st.success(f"📈 Тривалість заходу: **{main_days}** дн.")
-    st.write("---")
-    st.markdown("### 🌍 Загальний термін відрядження")
-    st.caption("Разом із днями в дорозі")
-    col3, col4 = st.columns(2)
-    start_total = col3.date_input("Дата початку", key="total_s")
-    end_total = col4.date_input("Дата кінця", key="total_e")
-    total_days = (end_total - start_total).days + 1
-    st.info(f"⏳ Загальна тривалість: **{total_days}** дн.")
-    st.write("")
-    if st.button("Далі до дат переміщення ➡️"):
-        st.session_state.data['start_total'] = start_total
-        st.session_state.data['end_total'] = end_total
-        go_to(2)
+    with col1:
+        if st.button("🇺🇦 а. Україна"):
+            st.toast("Ця функція ще недоступна 🚧", icon="⚠️")
+    with col2:
+        if st.button("🌍 б. Закордон"):
+            go_to(2)
 # --- СТОРІНКА 2 ---
 elif st.session_state.page == 2:
-    st.title("🚀 Крок 2: Логістика")
+    st.title("🗺️ Вибір країн")
     st.write("---")
-    with st.container():
-        st.markdown("#### 🏢 Виїзд")
-        d3 = st.date_input("📍 Дата виїзду з місця роботи")
-        st.markdown("#### 🇬🇧 Прибуття")
-        d4 = st.date_input("🛬 Дата прибуття в країну відрядження")
-        st.markdown("#### 🛫 Вибуття")
-        d5 = st.date_input("🛫 Дата вибуття з країни відрядження")
-        st.markdown("#### 🏠 Повернення")
-        d6 = st.date_input("🏁 Дата повернення в Україну")
+    st.markdown("### Оберіть країну відрядження:")
+    st.caption("Ви можете обрати до 3-х країн, натиснувши на карту")
+    # Відображення обраних країн
+    if st.session_state.selected_countries:
+        cols = st.columns(len(st.session_state.selected_countries))
+        for idx, country in enumerate(st.session_state.selected_countries):
+            with cols[idx]:
+                st.markdown(f"<div class='country-tag'>📍 {country}</div>", unsafe_allow_html=True)
+                if st.button(f"Видалити {country}", key=f"del_{idx}"):
+                    st.session_state.selected_countries.pop(idx)
+                    st.rerun()
+    st.write("")
+    # Кнопка "+" для виклику карти
+    if len(st.session_state.selected_countries) < 3:
+        if st.button("➕ Додати країну через карту"):
+            st.session_state.show_map = not st.session_state.show_map
+    # Карта (з'являється при натисканні на +)
+    if st.session_state.show_map and len(st.session_state.selected_countries) < 3:
+        st.info("Натисніть на країну на карті, щоб додати її")
+        # Створення карти
+        m = folium.Map(location=[50, 20], zoom_start=3, tiles="CartoDB positron")
+        # Завантажуємо межі країн для клікабельності
+        geo_json_data = requests.get(
+            "https://raw.githubusercontent.com/python-visualization/folium/master/examples/data/world-countries.json"
+        ).json()
+        folium.GeoJson(
+            geo_json_data,
+            name="geojson",
+            style_function=lambda x: {'fillColor': '#004aad', 'color': '#004aad', 'weight': 1, 'fillOpacity': 0.1},
+            highlight_function=lambda x: {'fillColor': '#00d4ff', 'fillOpacity': 0.5},
+            tooltip=folium.GeoJsonTooltip(fields=['name'], aliases=['Країна:'])
+        ).add_to(m)
+        # Обробка кліку
+        output = st_folium(m, width=700, height=400)
+        if output and output.get("last_active_drawing"):
+            new_country = output["last_active_drawing"]["properties"]["name"]
+            if new_country not in st.session_state.selected_countries:
+                st.session_state.selected_countries.append(new_country)
+                st.session_state.show_map = False # Ховаємо карту після вибору
+                st.rerun()
     st.write("---")
-    col_prev, col_next = st.columns(2)
-    with col_prev:
-        if st.button("⬅️ Назад до дат"): go_to(1)
-    with col_next:
-        if st.button("Далі до маршруту ➡️"):
-            st.session_state.data.update({'d3': d3, 'd4': d4, 'd5': d5, 'd6': d6})
-            go_to(3)
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("⬅️ Назад"): go_to(1)
+    with c2:
+        if len(st.session_state.selected_countries) > 0:
+            if st.button("Далі ➡️"): go_to(3)
 # --- СТОРІНКА 3 ---
 elif st.session_state.page == 3:
-    st.title("🛣️ Крок 3: Вибір маршруту")
-    st.write("---")
-    st.markdown("#### 🗺️ Як ви дістаєтесь до країни призначення?")
-    route = st.radio("Оберіть свій варіант:", [
-        "а. Прямий рейс (без ночівель та пересадок)",
-        "б. Складний маршрут (пересадки/ночівлі)"
-    ], help="Транзитні країни без зупинок не рахуються")
-    st.write("---")
-    col_prev, col_next = st.columns(2)
-    with col_prev:
-        if st.button("⬅️ Назад до логістики"): go_to(2)
-    with col_next:
-        if st.button("Далі до кордону ➡️"):
-            st.session_state.data['route'] = route
-            if "а." in route:
-                go_to(4)
-            else:
-                st.warning("🧩 Цей модуль у розробці. Оберіть пункт 'а' для розрахунку.")
-# --- СТОРІНКА 4 ---
-elif st.session_state.page == 4:
-    st.title("🛂 Крок 4: Деталі кордону")
-    st.write("---")
-    data = st.session_state.data
-    q8_answer = None
-    if data['d4'] != data['d3']:
-        st.markdown("#### 🕒 Перетин кордону НА ПОЧАТКУ")
-        q8_answer = st.radio("Коли ви перетнули український кордон?", 
-                            ["а. першого дня до 23:59", "б. другого дня після 00:00"], 
-                            index=0, key="q8")
-    st.write("")
-    q9_answer = None
-    if data['d6'] != data['d5']:
-        st.markdown("#### 🕒 Перетин кордону ПРИ ПОВЕРНЕННІ")
-        q9_answer = st.radio("Коли ви в'їхали в Україну?", 
-                            ["а. до 23:59 передостаннього дня", "б. після 00:00 останнього дня"], 
-                            index=0, key="q9")
-    st.write("---")
-    if st.button("✨ СФОРМУВАТИ ТАБЛИЦЮ ✨"):
-        all_dates = []
-        current_date = data['start_total']
-        while current_date <= data['end_total']:
-            all_dates.append(current_date)
-            current_date += timedelta(days=1)
-        results = {}
-        for dt in all_dates:
-            results[dt] = "Велика Британія"
-            if q8_answer == "б. другого дня після 00:00" and dt == data['d3']:
-                results[dt] = "Україна"
-            if q9_answer == "а. до 23:59 передостаннього дня" and dt == data['d6']:
-                results[dt] = "Україна"
-
-        st.session_state.final_df = pd.DataFrame({
-            "Дата": results.keys(),
-            "Добові по країні": results.values()
-        })
-        go_to(100)
-# --- ФІНАЛЬНА СТОРІНКА ---
-elif st.session_state.page == 100:
-    st.title("📊 Ваш фінальний результат")
-    st.balloons()
-    st.markdown("#### Таблиця 1: Розрахунок добових")
-    # Стилізація таблиці
-    st.dataframe(st.session_state.final_df.style.set_properties(**{
-        'background-color': '#f9f9f9',
-        'color': '#004aad',
-        'border-color': '#004aad'
-    }), use_container_width=True)
-    st.write("---")
-    if st.button("🔄 Почати заново"):
-        st.session_state.clear()
-        go_to(1)
+    st.title("✅ Крок 3")
+    st.success(f"Ви обрали: {', '.join(st.session_state.selected_countries)}")
+    if st.button("⬅️ Повернутися до карти"): go_to(2)
