@@ -1,40 +1,55 @@
 import streamlit as st
 import pandas as pd
 from datetime import timedelta, date
-st.set_page_config(page_title="ДСНС - Розрахунок", layout="centered")
-st.title("🏨 Вибір проживання (ДСНС)")
-# 1. Визначаємо період (ці дані зазвичай приходять з минулої сторінки)
+st.set_page_config(page_title="ДСНС - Розрахунок ночівель", layout="centered")
+st.title("🏨 Вибір ночівель")
+# 1. Задаємо межі відрядження
 start_dt = date(2026, 2, 1)
 end_dt = date(2026, 2, 9)
-# Розраховуємо список усіх дат відрядження без помилок
-# (Кількість днів = різниця між датами + 1)
-num_days = (end_dt - start_dt).days + 1
-all_days = [start_dt + timedelta(days=x) for x in range(num_days)]
-# Перетворюємо дати у зручний текст для списку
-date_options = [d.strftime("%d.%m.%Y") for d in all_days]
-st.info(f"Відрядження триває з {start_dt.strftime('%d.%m')} по {end_dt.strftime('%d.%m')}")
-# 2. ВІЗУАЛЬНИЙ ВИБІР: Користувач обирає дати зі списку
-st.subheader("Оберіть дати ночівель, які покриває ДСНС:")
+st.info(f"📅 Період відрядження: з **{start_dt.strftime('%d.%m')}** по **{end_dt.strftime('%d.%m')}**")
+# 2. Генеруємо проміжки "Ніч з... на..."
+# Кількість ночей завжди на 1 менша, ніж кількість днів
+night_options = []
+all_days = []
+curr = start_dt
+while curr < end_dt:
+    next_day = curr + timedelta(days=1)
+    night_label = f"Ніч з {curr.strftime('%d.%m')} на {next_day.strftime('%d.%m')}"
+    night_options.append(night_label)
+    all_days.append(curr) # зберігаємо дату початку для логіки таблиці
+    curr = next_day
+# Додаємо останній день у список для повної таблиці
+full_date_range = [start_dt + timedelta(days=x) for x in range((end_dt - start_dt).days + 1)]
+# 3. Мультиселект для вибору ночей
+st.subheader("Оберіть ночівлі, які покриває ДСНС:")
 selected_nights = st.multiselect(
-    "Клацніть, щоб обрати одну або декілька дат:",
-    options=date_options,
-    help="Оберіть тільки ті дати, за які проживання оплачує держава"
+    "Оберіть один або кілька варіантів:",
+    options=night_options,
+    help="Кожен обраний проміжок додасть 120 доларів у таблицю"
 )
-# 3. АВТОМАТИЧНА ТАБЛИЦЯ
+# 4. Формування Таблиці 1
 st.write("---")
-st.subheader("Таблиця 1: Попередній розрахунок")
+st.subheader("Таблиця 1")
 table_data = []
-for d in all_days:
+for d in full_date_range:
     d_str = d.strftime("%d.%m.%Y")
-    # Перевірка: чи є ця дата у списку обраних
-    cost = "120 доларів" if d_str in selected_nights else "-"
+    # Визначаємо, чи була ця дата початком обраної ночі
+    # Шукаємо, чи є в обраних ночах рядок, що починається з цієї дати
+    is_covered = False
+    for night in selected_nights:
+        if f"з {d.strftime('%d.%m')}" in night:
+            is_covered = True
+            break
+    cost = "120 доларів" if is_covered else "-"
     table_data.append({
         "Дата": d_str,
         "Країна": "Польща",
-        "Витрати на житло (ДСНС)": cost
+        "Проживання (ДСНС)": cost
     })
-# Відображення таблиці
 df = pd.DataFrame(table_data)
-st.dataframe(df, use_container_width=True)
+# Використовуємо стилізацію, щоб підсвітити заповнені рядки
+def highlight_costs(s):
+    return ['background-color: #e2f0d9' if v == "120 доларів" else '' for v in s]
+st.dataframe(df.style.apply(highlight_costs, subset=['Проживання (ДСНС)']), use_container_width=True)
 if selected_nights:
-    st.success(f"✅ Ви обрали {len(selected_nights)} ночей для оплати ДСНС.")
+    st.success(f"✅ Узгоджено оплату проживання за {len(selected_nights)} ночі(ей).")
