@@ -1,106 +1,75 @@
 import streamlit as st
 from datetime import timedelta, date
 st.set_page_config(layout="wide", page_title="Схема ночівель ДСНС")
-# --- СТИЛІЗАЦІЯ ---
+# Стилізація для дат та контейнера
 st.markdown("""
     <style>
-    /* Контейнер для схеми */
-    .timeline-container {
+    .date-label {
+        text-align: center;
+        font-weight: bold;
+        color: #1e3a8a;
+        background-color: #e2e8f0;
+        padding: 5px;
+        border-radius: 8px;
+        min-width: 60px;
+    }
+    .night-container {
         display: flex;
         align-items: center;
-        justify-content: start;
-        overflow-x: auto;
-        padding: 40px 10px;
-        background-color: #f8f9fa;
-        border-radius: 15px;
-    }
-    /* Стиль дати (кілочок) */
-    .date-point {
-        text-align: center;
-        min-width: 60px;
-        font-weight: bold;
-        color: #475569;
-    }
-    /* Загальний стиль для кнопок-ночей */
-    div.stButton > button {
-        height: 60px !important;
-        margin-top: 10px;
-        border-radius: 10px !important;
-        border: none !important;
-        transition: 0.3s !important;
-        font-weight: bold !important;
-    }
-    /* Сіра ніч (не обрано) */
-    div.stButton > button.night-off {
-        background-color: #e2e8f0 !important;
-        color: #64748b !important;
-    }
-    /* Зелена ніч (обрано) */
-    div.stButton > button.night-on {
-        background-color: #22c55e !important;
-        color: white !important;
-        box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4) !important;
+        justify-content: center;
+        flex-direction: column;
     }
     </style>
     """, unsafe_allow_html=True)
 st.title("🌙 Візуальна схема ночівель")
-st.write("Натисніть на сірий блок ночівлі, щоб зробити його зеленим (оплата ДСНС).")
-# 1. Дати (приклад)
+st.info("Натисніть на кнопку 'Ніч', щоб змінити її статус. Зелений колір = оплата ДСНС.")
+# 1. Налаштування дат (можна буде змінювати)
 start_dt = date(2026, 2, 1)
 end_dt = date(2026, 2, 9)
-# Створюємо список ночей
-nights = []
+# Створюємо список початкових дат для ночей
+night_starts = []
 curr = start_dt
 while curr < end_dt:
-    nights.append(curr)
+    night_starts.append(curr)
     curr += timedelta(days=1)
-# Ініціалізація стану
+# Ініціалізація стану кнопок у пам'яті програми
 if 'active_nights' not in st.session_state:
-    st.session_state.active_nights = {d: False for d in nights}
-# 2. ПОБУДОВА СХЕМИ
-# Створюємо багато колонок: по одній для дати, по одній для ночі
-# Кількість колонок = дні + ночі
-total_cols = len(nights) * 2 + 1
-cols = st.columns(total_cols)
-col_ptr = 0
-for i, d in enumerate(nights):
-    # Відображаємо дату (кілочок)
-    with cols[col_ptr]:
-        st.markdown(f"<div class='date-point'>{d.strftime('%d.%m')}</div>", unsafe_allow_html=True)
-    col_ptr += 1
-    # Відображаємо ніч (кнопка)
-    with cols[col_ptr]:
-        is_active = st.session_state.active_nights[d]
-        label = "Ніч"
-        # Використовуємо ключ для ідентифікації
-        if st.button(label, key=f"n_{d}", help=f"Ніч з {d} на {d+timedelta(days=1)}"):
-            st.session_state.active_nights[d] = not is_active
+    st.session_state.active_nights = {str(d): False for d in night_starts}
+# 2. ПОБУДОВА СХЕМИ (Рядок: Дата -> Ніч -> Дата)
+# Розраховуємо кількість колонок для горизонтального вигляду
+cols = st.columns(len(night_starts) * 2 + 1)
+for i, d in enumerate(night_starts):
+    # Відображаємо дату
+    with cols[i * 2]:
+        st.markdown(f"<div class='date-label'>{d.strftime('%d.%m')}</div>", unsafe_allow_html=True)
+    # Відображаємо кнопку ночі між датами
+    with cols[i * 2 + 1]:
+        d_str = str(d)
+        is_active = st.session_state.active_nights[d_str]      
+        # Якщо активовано - кнопка стає зеленою (primary), якщо ні - сірою (secondary)
+        btn_type = "primary" if is_active else "secondary"      
+        if st.button("Ніч", key=f"btn_{d_str}", type=btn_type, use_container_width=True):
+            st.session_state.active_nights[d_str] = not is_active
             st.rerun()
-        # Застосовуємо колір через зміну стилю кнопки (Streamlit hack)
-        # Оскільки st.button не має параметра class, ми "підсвічуємо" через стан
-    col_ptr += 1
-# Останній кілочок дати
-with cols[col_ptr]:
-    st.markdown(f"<div class='date-point'>{end_dt.strftime('%d.%m')}</div>", unsafe_allow_html=True)
-# 3. ЛЕГЕНДА ТА РЕЗУЛЬТАТ
+# Відображаємо останню дату в кінці схеми
+with cols[-1]:
+    st.markdown(f<div class='date-label'>{end_dt.strftime('%d.%m')}</div>", unsafe_allow_html=True)
+# 3. ПІДСУМОК ТА ТАБЛИЦЯ
 st.write("---")
-c1, c2, c3 = st.columns(3)
+active_count = sum(st.session_state.active_nights.values())
+total_cost = active_count * 120
+c1, c2 = st.columns(2)
 with c1:
-    st.markdown("🔘 **Сірий** — Власні кошти / Приймаюча сторона")
+    st.metric("Обрано ночівель:", active_count)
 with c2:
-    st.markdown("🟢 **Зелений** — Оплачує ДСНС ($120)")
-# Розрахунок загальної суми
-total_sum = sum(120 for status in st.session_state.active_nights.values() if status)
-st.metric("Загальна сума за проживання:", f"{total_sum} $")
-if total_sum > 0:
-    st.info("💡 Ці дані будуть автоматично перенесені у Таблицю 1 вашого кошторису.")
-# Щоб візуально кнопки ставали зеленими/сірими, ми додамо невеликий інжект стилів для кожної кнопки окремо
-style_inject = ""
-for d, active in st.session_state.active_nights.items():
-    bg_color = "#22c55e" if active else "#e2e8f0"
-    txt_color = "white" if active else "#64748b"
-    style_inject += f"""
-        div.stButton > button[key="btn_n_{d}"] {{
-            background-color: {bg_color} !important;
-            color: {txt_color} !important;
-        }}
+    st.metric("Сума до виплати (ДСНС):", f"{total_cost} $")
+if active_count > 0:
+    st.success("✅ Ці дані будуть використані для формування Таблиці 1.")
+    
+    # Показуємо, як це виглядатиме в таблиці
+    st.write("**Попередній вигляд рядків таблиці:**")
+    results = []
+    for d_str, active in st.session_state.active_nights.items():
+        if active:
+            results.append({"Дата початку ночі": d_str, "Країна": "Польща", "Сума": "120 $"})
+    st.table(results)
