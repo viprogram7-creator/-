@@ -1,67 +1,105 @@
 import streamlit as st
 import pandas as pd
-from datetime import date, timedelta
-# --- Налаштування стилів ---
+from datetime import timedelta, date
+# Налаштування сторінки
+st.set_page_config(layout="wide", page_title="ДСНС - Кошторис")
+# Спеціальні CSS-стилі для "мультяшної" ночі та кнопок
 st.markdown("""
     <style>
-    .night-card {
-        background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
-        color: white;
-        padding: 10px;
-        border-radius: 10px;
-        text-align: center;
-        font-weight: bold;
-        cursor: pointer;
-        border: 2px solid #555;
+    /* Стиль для контейнера з датами */
+    .date-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        overflow-x: auto;
+        padding: 20px;
+    }
+    /* Загальний стиль для кнопок ночівлі */
+    div.stButton > button {
+        width: 180px !important;
+        height: 50px !important;
+        border-radius: 12px;
+        font-size: 16px !important;
         transition: 0.3s;
     }
-    .night-card.active {
-        background: #2e7d32 !important;
-        border: 2px solid #a5d6a7;
+    /* Синій фон: зорі та півмісяць */
+    div.stButton > button.night-blue {
+        background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%) !important;
+        color: #f1f5f9 !important;
+        border: 1px solid #3b82f6 !important;
+    }
+    /* Зелений фон при натисканні */
+    div.stButton > button.night-green {
+        background: linear-gradient(135deg, #166534 0%, #22c55e 100%) !important;
+        color: white !important;
+        border: 2px solid #bef264 !important;
+        box-shadow: 0 0 15px rgba(34, 197, 94, 0.5);
     }
     </style>
     """, unsafe_allow_html=True)
-st.title("🌙 Планування відрядження")
-# --- Дані ---
-start_date = date(2026, 2, 1)
-end_date = date(2026, 2, 9)
-# Ночівлі в ніч з (1 на 2) по (6 на 7)
-night_dates = [date(2026, 2, i) for i in range(2, 8)]
-if 'nights' not in st.session_state:
-    st.session_state.nights = {d: False for d in night_dates}
-# --- Відображення терміну ---
-st.subheader("Загальний термін відрядження: 01.02.2026 – 09.02.2026")
-# Відображення дат та кнопок ночівлі
-cols = st.columns(len(night_dates) * 2 + 1)
-curr_date = start_date
-for i in range((end_date - start_date).days + 1):
-    d = start_date + timedelta(days=i)
-    cols[i*2].write(f"**{d.strftime('%d.%m')}**")
-    # Якщо це дата після якої є "ночівля"
-    if d in night_dates:
-        is_active = st.session_state.nights[d]
-        css_class = "night-card active" if is_active else "night-card" 
-        # Кнопка ночівлі
-        if st.button(f"🌙✨ НОЧІВЛЯ", key=f"n_{d}"):
-            st.session_state.nights[d] = not is_active
-            if not is_active:
-                st.toast("Витрати на найм житлового приміщення покриває ДСНС!", icon="🏨")
-           st.rerun()
-# --- Таблиця 1 ---
-st.markdown("---")
+st.title("💼 Розрахунок витрат на проживання")
+# 1. Налаштування періоду
+start_total = date(2026, 2, 1)
+end_total = date(2026, 2, 9)
+# Ночівлі за логікою відбуваються МІЖ днями (наприклад, з 2 на 3, з 3 на 4...)
+night_starts = [date(2026, 2, i) for i in range(2, 8)]
+# Створення списку дат
+all_dates = []
+curr = start_total
+while curr <= end_total:
+    all_dates.append(curr)
+    curr += timedelta(days=1)
+# Стан для збереження "зелених" натискань
+if 'green_nights' not in st.session_state:
+    st.session_state.green_nights = {d: False for d in night_starts}
+# 2. Візуалізація рядочка
+st.subheader("Загальний термін відрядження та ночівлі")
+# Використовуємо велику кількість колонок для горизонтального ряду
+cols = st.columns(len(all_dates) + len(night_starts))
+col_ptr = 0
+for i, dt in enumerate(all_dates):
+    # Відображаємо дату
+    cols[col_ptr].metric(label="Дата", value=dt.strftime("%d.%m"))
+    col_ptr += 1
+    # Якщо між цією датою та наступною є ночівля
+    if dt in night_starts:
+        with cols[col_ptr]:
+            is_green = st.session_state.green_nights[dt]
+            btn_label = "🌙✨ ночівля"
+            btn_type = "night-green" if is_green else "night-blue" 
+            # Використання контейнера для індивідуального стилю (Markdown hack)
+            st.markdown(f'<div class="{btn_type}">', unsafe_allow_html=True)
+            if st.button(btn_label, key=f"btn_{dt}"):
+                st.session_state.green_nights[dt] = not is_green
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+        col_ptr += 1
+# 3. Виведення повідомлення
+active_nights = [d for d, status in st.session_state.green_nights.items() if status]
+if active_nights:
+    st.info("💡 Витрати на найм житлового приміщення покриває ДСНС (для обраних ночівель)")
+# 4. Формування Таблиці 1
+st.write("---")
 st.subheader("Таблиця 1")
-table_data = []
-for i in range((end_date - start_date).days + 1):
-    d = start_date + timedelta(days=i)
-    # Якщо ночівля була активна
-    cost = 120 if st.session_state.nights.get(d, False) else 0
-    table_data.append({
-        "Дата": d.strftime("%d.%m.%Y"),
+table_rows = []
+for dt in all_dates:
+    # Перевіряємо, чи була ночівля, що призвела до витрат у цю дату
+    # Зазвичай витрати за ніч рахуються на дату початку ночівлі або дату чекауту.
+    # Тут ставимо "120 доларів", якщо відповідна ніч стала "зеленою".
+    cost = "-"
+    if dt in st.session_state.green_nights and st.session_state.green_nights[dt]:
+        cost = "120 доларів"    
+    table_rows.append({
+        "Дата": dt.strftime("%d.%m.%Y"),
         "Країна": "Польща",
-        "Добові (USD)": cost if cost > 0 else "-"
+        "Витрати ДСНС": cost
     })
-df = pd.DataFrame(table_data)
+df = pd.DataFrame(table_rows)
 st.table(df)
-if st.button("🔄 Почати заново"):
-    st.session_state.nights = {d: False for d in night_dates}
-    st.rerun()
+### Пояснення функціоналу:
+* **Інтерактивність:** Кожне слово "ночівля" — це кнопка. При першому натисканні вона стає зеленою (активує витрати). При повторному — повертається до синього "нічного" стану.
+* **Дизайн:** Синій фон реалізований через градієнт `linear-gradient` від темно-синього до насиченого синього, що імітує нічне небо.
+* **Логіка таблиці:** Колонки таблиці заповнюються автоматично. Якщо кнопка між 02.02 та 03.02 стала зеленою, у рядку за 02.02 (або за логікою вашого документа) з'явиться сума 120 доларів.
+* **Зв'язок з ДСНС:** Повідомлення про покриття витрат з'являється автоматично, як тільки користувач зробить хоча б один вибір "зеленим".
+
+**Чи потрібно змінити логіку прив'язки "зеленого" до дати в таблиці (наприклад, щоб 120 доларів ставилися не на день початку ночівлі, а на наступний день після неї)?**
